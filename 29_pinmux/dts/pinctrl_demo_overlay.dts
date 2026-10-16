@@ -1,0 +1,74 @@
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/pinctrl/am33xx.h>
+
+/*
+ * Pin Control demo for the BeagleBone Black (TI AM335x)
+ *
+ * Pins: P9_24 (pad conf_uart1_txd, 0x984) and P9_26 (pad conf_uart1_rxd, 0x980)
+ *
+ *   state "default" : both pads in MODE 7 = GPIO0_15 / GPIO0_14, inputs with pull-down
+ *   state "uart"    : both pads in MODE 0 = UART1_TXD (output) / UART1_RXD (input, pull-up)
+ *
+ * Each AM335x pad has one 32-bit register in the control module:
+ *   bits [2:0] MUXMODE    0..7 (7 = GPIO)
+ *   bit  3     PULLUDEN   0 = pull enabled, 1 = disabled
+ *   bit  4     PULLTYPESEL 0 = pull-down, 1 = pull-up
+ *   bit  5     RXACTIVE   1 = input buffer enabled
+ *   bit  6     SLEWCTRL   0 = fast, 1 = slow
+ * AM33XX_PADCONF(pad, conf, mux) expands to the three cells
+ * <offset-from-0x800 conf mux> expected by pinctrl-single (#pinctrl-cells = 2).
+ *
+ * Requires cape-universal to be disabled (`make install` does it).
+ */
+
+/{
+	compatible = "ti,am335x-bone-black", "ti,am335x-bone", "ti,am33xx";
+
+	/* -----------------------------------------------------------
+	 * Fragment 0: pin configuration nodes live under the AM335x
+	 * control-module pin controller (pinctrl-single), which is a
+	 * different block than the GPIO controllers gpio0..gpio3.
+	 * ----------------------------------------------------------- */
+	fragment@0 {
+		target = <&am33xx_pinmux>;
+		__overlay__ {
+
+			/* P9_24 / P9_26 as plain GPIO inputs, pull-down */
+			pinctrl_demo_default: pinctrl-demo-default-pins {
+				pinctrl-single,pins = <
+					AM33XX_PADCONF(AM335X_PIN_UART1_TXD, PIN_INPUT_PULLDOWN, MUX_MODE7) /* P9_24 gpio0_15 */
+					AM33XX_PADCONF(AM335X_PIN_UART1_RXD, PIN_INPUT_PULLDOWN, MUX_MODE7) /* P9_26 gpio0_14 */
+				>;
+			};
+
+			/* P9_24 / P9_26 as UART1 TXD / RXD (mode 0) */
+			pinctrl_demo_uart: pinctrl-demo-uart-pins {
+				pinctrl-single,pins = <
+					AM33XX_PADCONF(AM335X_PIN_UART1_TXD, PIN_OUTPUT_PULLDOWN, MUX_MODE0) /* P9_24 uart1_txd */
+					AM33XX_PADCONF(AM335X_PIN_UART1_RXD, PIN_INPUT_PULLUP,    MUX_MODE0) /* P9_26 uart1_rxd */
+				>;
+			};
+		};
+	};
+
+	/* -----------------------------------------------------------
+	 * Fragment 1: a dummy platform device that "owns" the pins
+	 * above and asks the pinctrl core to apply them.
+	 * ----------------------------------------------------------- */
+	fragment@1 {
+		target-path = "/";
+		__overlay__{
+			pinctrl_demo_device: pinctrl_demo@0{
+				compatible = "mpcoding,pinctrl-demo";
+
+				pinctrl-names = "default", "uart";
+				pinctrl-0 = <&pinctrl_demo_default>;
+				pinctrl-1 = <&pinctrl_demo_uart>;
+
+				status = "okay";
+			};
+		};
+	};
+};

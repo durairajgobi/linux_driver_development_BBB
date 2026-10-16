@@ -1,0 +1,34 @@
+/dts-v1/;
+/plugin/;
+
+/*
+ * BMP180 on the BeagleBone Black I2C2 bus: P9_19 = SCL, P9_20 = SDA.
+ * &i2c2 is already enabled (100 kHz) and pin-muxed by the base device tree
+ * (am335x-bone-common.dtsi), so we only add a child node.
+ */
+
+/ {
+    compatible = "ti,am335x-bone-black", "ti,am335x-bone", "ti,am33xx";
+
+    fragment@0 {
+        target = <&i2c2>;
+        __overlay__ {
+
+            #address-cells = <1>;
+            #size-cells    = <0>;
+
+            bmp180: bmp180@77 {
+                compatible = "bmp180-sensor,myi2c";
+                status = "okay";
+
+                reg = <0x77>;
+
+                calib_reg   = /bits/ 8 <0xAA>;
+                meas_reg    = /bits/ 8 <0xF4>;
+                result_msb  = /bits/ 8 <0xF6>;
+                ctrl_temp   = /bits/ 8 <0x2E>;
+                ctrl_pres   = /bits/ 8 <0x34>;
+            };
+        };
+    };
+};

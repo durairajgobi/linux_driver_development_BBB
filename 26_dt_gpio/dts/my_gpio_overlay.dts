@@ -1,0 +1,52 @@
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/pinctrl/am33xx.h>
+
+/*
+ * BeagleBone Black
+ *   LED    : P9_12 = GPIO1_28  (pad conf_gpmc_ben1, 0x878)
+ *   BUTTON : P9_15 = GPIO1_16  (pad conf_gpmc_a0,   0x840), to GND, active low
+ *
+ * On the RPi the GPIO controller is also the pin controller. On the AM335x
+ * pin muxing is done by the separate control-module "pinctrl-single" node
+ * (&am33xx_pinmux), so the overlay has two fragments:
+ *   fragment@0 - put both pads into mode 7 (GPIO) with the right pull
+ *   fragment@1 - the device node that uses the pads and the GPIO lines
+ *
+ * Requires cape-universal to be disabled (`make install` does it), otherwise
+ * its pinmux helpers already own P9_12 / P9_15.
+ */
+
+/ {
+    compatible = "ti,am335x-bone-black", "ti,am335x-bone", "ti,am33xx";
+
+    fragment@0 {
+        target = <&am33xx_pinmux>;
+        __overlay__ {
+            mydevice_pins: mydevice-pins {
+                pinctrl-single,pins = <
+                    AM33XX_PADCONF(AM335X_PIN_GPMC_BEN1, PIN_OUTPUT,       MUX_MODE7) /* P9_12 gpio1_28 LED    */
+                    AM33XX_PADCONF(AM335X_PIN_GPMC_A0,   PIN_INPUT_PULLUP, MUX_MODE7) /* P9_15 gpio1_16 BUTTON */
+                >;
+            };
+        };
+    };
+
+    fragment@1 {
+        target-path = "/";
+        __overlay__ {
+            mydevice: mydevice@0 {
+                compatible = "testdevice,mydev";
+                status = "okay";
+
+                pinctrl-names = "default";
+                pinctrl-0 = <&mydevice_pins>;
+
+                led-gpios       = <&gpio1 28 GPIO_ACTIVE_HIGH>; /* P9_12 */
+                button-gpios    = <&gpio1 16 GPIO_ACTIVE_LOW>;  /* P9_15 */
+            };
+        };
+    };
+};

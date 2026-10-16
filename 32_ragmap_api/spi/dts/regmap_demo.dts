@@ -1,0 +1,61 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * regmap_demo.dts - MPU6500 on SPI0 of the BeagleBone Black
+ *
+ *   P9_22 SPI0_SCLK   P9_18 SPI0_D1 (MOSI)
+ *   P9_21 SPI0_D0 (MISO)   P9_17 SPI0_CS0
+ *
+ * Mainline/BeagleBoard.org base trees leave &spi0 disabled and the pads in
+ * their reset mode, so this overlay muxes the pads AND enables the
+ * controller. cape-universal must be disabled (`make install` does it):
+ * it would otherwise own the pads and put spidev on CS0.
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/pinctrl/am33xx.h>
+
+/ {
+    compatible = "ti,am335x-bone-black", "ti,am335x-bone", "ti,am33xx";
+
+    fragment@0 {
+        target = <&am33xx_pinmux>;
+        __overlay__ {
+            spi0_regmap_pins: spi0-regmap-pins {
+                pinctrl-single,pins = <
+                    AM33XX_PADCONF(AM335X_PIN_SPI0_SCLK, PIN_INPUT_PULLUP, MUX_MODE0) /* P9_22 sclk (RX on for clock feedback) */
+                    AM33XX_PADCONF(AM335X_PIN_SPI0_D0,   PIN_INPUT_PULLUP, MUX_MODE0) /* P9_21 d0 = MISO */
+                    AM33XX_PADCONF(AM335X_PIN_SPI0_D1,   PIN_OUTPUT_PULLUP, MUX_MODE0) /* P9_18 d1 = MOSI */
+                    AM33XX_PADCONF(AM335X_PIN_SPI0_CS0,  PIN_OUTPUT_PULLUP, MUX_MODE0) /* P9_17 cs0 */
+                >;
+            };
+        };
+    };
+
+    fragment@1 {
+        target = <&spi0>;
+        __overlay__ {
+            #address-cells = <1>;
+            #size-cells = <0>;
+            pinctrl-names = "default";
+            pinctrl-0 = <&spi0_regmap_pins>;
+            status = "okay";
+            /* no "ti,pindir-d0-out-d1-in": D0 = input (MISO), D1 = output (MOSI) */
+
+            regmap_demo: regmap-demo@0 {
+                compatible = "mpcoding,regmap-demo";
+                reg = <0>;                     /* chip-select 0 on spi0 */
+                spi-max-frequency = <1000000>; /* 1 MHz register I/O limit */
+                status = "okay";
+
+                /* add device-specific properties here, e.g.: */
+                /* interrupt-parent = <&gpio3>; */
+                /* interrupts = <19 IRQ_TYPE_EDGE_FALLING>; */  /* P9_27 = GPIO3_19 */
+                /* reset-gpios = <&gpio1 17 GPIO_ACTIVE_LOW>; */ /* P9_23 = GPIO1_17 */
+            };
+        };
+    };
+};
